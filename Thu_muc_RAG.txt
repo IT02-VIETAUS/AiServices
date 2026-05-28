@@ -1,0 +1,78 @@
+CompanyKnowledge/
+│
+├── IMS/                                → Hệ thống quản lý tài liệu chuẩn
+│   │
+│   ├── SOP/                            → Standard Operating Procedure
+│   ├── WI/                             → Work Instruction
+│   ├── POLICY/                         → Chính sách công ty
+│   ├── FORM/                           → Biểu mẫu chuẩn
+│   ├── TEMPLATE/                       → Template chuẩn
+│   ├── GUIDELINE/                      → Văn bản hướng dẫn
+│   ├── TRAINING/                       → Tài liệu đào tạo
+│   ├── MEETING/                        → Biên bản họp
+│   ├── CHECKLIST/                      → Checklist chuẩn
+│   ├── KPI/                            → KPI và đánh giá
+│   ├── RISK/                           → Đánh giá rủi ro
+│   ├── AUDIT/                          → Hồ sơ audit
+│   ├── CAPA/                           → Khắc phục/phòng ngừa
+│   └── Archive/                        → Tài liệu cũ
+│
+├── QAQC/                               → Tri thức chất lượng các biểu mẫu hư dẫn
+│   ├── SOP/
+│   ├── STANDARD/
+│   ├── INSPECTION/
+│   ├── NG_HANDLING/
+│   ├── COMPLAINT/
+│   ├── TRAINING/
+│   └── REPORT/
+│
+├── MRO/                                → Tri thức bảo trì các biểu mẫu hư dẫn
+│   ├── SOP/
+│   ├── PM/
+│   ├── TROUBLESHOOT/
+│   ├── MANUAL/
+│   ├── CHECKLIST/
+│   ├── MACHINE_GUIDE/
+│   └── TRAINING/
+│
+├── Warehouse/                          → Tri thức kho các biểu mẫu hư dẫn
+│   ├── SOP/
+│   ├── IMPORT/
+│   ├── EXPORT/
+│   ├── INVENTORY/
+│   ├── QR_GUIDE/
+│   └── CHECKLIST/
+│
+├── Production/                         → Tri thức sản xuất các biểu mẫu hư dẫn
+│   ├── SOP/
+│   ├── MACHINE/
+│   ├── FORMULA_GUIDE/
+│   ├── SHIFT_GUIDE/
+│   ├── TROUBLESHOOT/
+│   └── TRAINING/
+│
+├── HR/                                 → Tri thức nhân sự các biểu mẫu hư dẫn
+│   ├── POLICY/
+│   ├── TRAINING/
+│   ├── SAFETY/
+│   ├── EVALUATION/
+│   └── GUIDELINE/
+│
+├── Accounting/                         → Tri thức kế toán các biểu mẫu hư dẫn
+│   ├── POLICY/
+│   ├── TAX_GUIDE/
+│   ├── COSTING/
+│   ├── SOP/
+│   └── REPORT_GUIDE/
+│
+├── Sales/                              → Tri thức kinh doanh các biểu mẫu hư dẫn
+│   ├── CUSTOMER_GUIDE/
+│   ├── QUOTATION/
+│   ├── MARKET/
+│   ├── CONTRACT_GUIDE/
+│   └── TRAINING/
+│
+└── Shared/                             → Tri thức dùng chung
+├── Templates/ → File mẫu chuẩn
+├── Images/ → Hình ảnh mẫu 
+├── AI/ → AI prompts, logs, exports 	  Các quy tắc hướng dẫn AI

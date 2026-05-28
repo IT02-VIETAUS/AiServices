@@ -1,0 +1,903 @@
+HUONG DAN KIEN TRUC VA QUY TAC PHAT TRIEN DU AN AiServices
+==============================================================
+
+Du an: AiServices
+Muc dich: Xay dung AI API noi bo cho ERP
+Kieu trien khai: AI chay tap trung tren may chu noi bo, ERP chi goi AI API qua HTTP
+Phien ban tai lieu: 1.0
+Ngay lap: 27/05/2026
+
+
+==============================================================
+1. MUC TIEU KIEN TRUC
+==============================================================
+
+AiServices la he thong AI API trung tam cho ERP noi bo.
+
+Nguyen tac tong quat:
+
+1. ERP WPF Client KHONG goi truc tiep Ollama.
+2. ERP WPF Client chi goi AiServices.Api qua HTTP.
+3. AiServices.Api moi la cong trung tam dieu phoi:
+   - Xac thuc token ERP.
+   - Kiem tra quyen user.
+   - Goi Ollama.
+   - Dieu phoi Chat/RAG.
+   - Dieu phoi AI Agent sau nay.
+   - Ghi log/audit.
+4. AiServices khong tu xay he thong dang nhap rieng.
+5. AiServices phai dung lai token dang nhap tu ERP.
+6. Bat ky chuc nang doc DB, doc tai lieu, gui mail, tao bao cao, agent... deu phai di qua AiServices.Api.
+7. Khong viet tat ca logic vao Controller.
+8. Khong hard-code user, token, role, companyId, duong dan may chu, model name trong code.
+9. Nhung phan chua co thong tin that tu ERP thi de interface/placeholder sach, khong tao demo
+10. Phat trien theo tung giai doan, khong nhay thang vao Agent khi nen Chat/Auth/RAG chua on dinh.
+
+
+==============================================================
+2. LUONG HE THONG CHUAN
+==============================================================
+
+Luong goi chat:
+
+[ERP WPF Client]
+        |
+        | HTTP + ERP Access Token
+        v
+[AiServices.Api]
+        |
+        | Validate token ERP
+        v
+[AiServices.Application]
+        |
+        | Goi interface IChatCompletionClient
+        v
+[AiServices.Infrastructure]
+        |
+        | HTTP
+        v
+[Ollama Server]
+
+Sau nay khi co RAG:
+
+[ERP WPF Client]
+        |
+        v
+[AiServices.Api]
+        |
+        v
+[Application/AiChatService]
+        |
+        +--> Embedding cau hoi
+        +--> Retrieval tai lieu lien quan
+        +--> Build prompt co context
+        +--> Goi chat model
+        +--> Tra loi co nguon
+        +--> Ghi chat log va source log
+
+Sau nay khi co Agent:
+
+[ERP WPF Client]
+        |
+        v
+[AiServices.Api]
+        |
+        v
+[AgentOrchestrator]
+        |
+        +--> Lap plan
+        +--> Chon tool duoc phep
+        +--> Chay tool read-only/write neu duoc phe duyet
+        +--> Ghi agent log/tool log/approval log
+
+
+==============================================================
+3. CAU TRUC SOLUTION CHUAN
+==============================================================
+
+AiServices/
+│
+├── AiServices.sln
+│
+├── README_BAT_DAU.md
+│
+├── docs/
+│   └── KIEN_TRUC_THU_MUC.md
+│
+└── src/
+    ├── AiServices.Domain/
+    ├── AiServices.Application/
+    ├── AiServices.Infrastructure/
+    ├── AiServices.Persistence/
+    ├── AiServices.Api/
+    └── AiServices.Worker/
+
+
+==============================================================
+4. VAI TRO TUNG PROJECT
+==============================================================
+
+--------------------------------------------------------------
+4.1. AiServices.Domain
+--------------------------------------------------------------
+
+Vai tro:
+- Chua model loi thuan tuy.
+- Khong phu thuoc ASP.NET.
+- Khong phu thuoc EF/Npgsql.
+- Khong phu thuoc Ollama.
+- Khong goi HTTP.
+- Khong doc file.
+- Khong chua logic ha tang.
+
+Duoc phep dat o day:
+- Entity loi.
+- Value object.
+- Enum.
+- Constants dung chung.
+- Model ngu canh user sau khi xac thuc.
+- Cac kieu du lieu loi cua Chat/RAG/Agent.
+
+Vi du:
+- ErpUserContext
+- ErpClaimTypes
+- ChatSource
+- AgentActionLevel
+- DocumentStatus
+
+Khong duoc dat o day:
+- Controller.
+- Repository implementation.
+- HttpClient.
+- Npgsql connection.
+- Ollama request/response HTTP raw.
+- Code doc file PDF/DOCX.
+- Code goi ERP API.
+
+
+--------------------------------------------------------------
+4.2. AiServices.Application
+--------------------------------------------------------------
+
+Vai tro:
+- Chua use case va nghiep vu ung dung.
+- Dieu phoi logic Chat/RAG/Agent.
+- Dinh nghia interface ma Infrastructure/Persistence se implement.
+- Khong phu thuoc truc tiep vao ASP.NET Controller.
+- Khong phu thuoc truc tiep vao Ollama cu the.
+- Khong phu thuoc truc tiep vao PostgreSQL cu the.
+
+Duoc phep dat o day:
+- AiChatService.
+- AgentOrchestratorService.
+- RetrievalService.
+- PromptBuilderService.
+- Interface:
+  + IChatCompletionClient
+  + IEmbeddingClient
+  + IVectorStoreRepository
+  + IErpTokenValidator
+  + IAuditLogRepository
+  + IDocumentScannerService
+  + IAgentTool
+  + IAgentApprovalService
+
+Nguyen tac:
+- Application chi goi interface.
+- Implementation that nam o Infrastructure hoac Persistence.
+- Application khong biet Ollama dang chay URL nao.
+- Application khong biet DB connection string.
+- Application khong lay userId/role tu body request.
+- Application nhan user context da duoc Auth xu ly tu API.
+
+Khong duoc dat o day:
+- Controller.
+- appsettings.
+- HttpClient goi Ollama.
+- SQL raw truc tiep neu khong thong qua repository abstraction.
+- Code UI/WPF.
+
+
+--------------------------------------------------------------
+4.3. AiServices.Infrastructure
+--------------------------------------------------------------
+
+Vai tro:
+- Chua code ket noi he thong ben ngoai.
+- Implement interface cua Application.
+- Goi Ollama.
+- Goi ERP Auth API.
+- Goi Email service.
+- Doc file neu can adapter ngoai.
+- Goi service ngoai he thong.
+
+Duoc phep dat o day:
+- OllamaChatCompletionClient.
+- OllamaEmbeddingClient.
+- ErpHttpTokenValidator.
+- EmailServiceClient.
+- FileTextExtractor.
+- PdfTextExtractor.
+- DocxTextExtractor.
+
+Nguyen tac:
+- Moi cau hinh doc tu Options/appsettings.
+- Khong hard-code URL/model/token.
+- Khong viet logic nghiep vu phuc tap o day.
+- Chi dong vai tro adapter.
+
+Khong duoc dat o day:
+- Controller.
+- Entity DB thuoc Persistence.
+- Business rule chinh cua Chat/RAG/Agent.
+- UI/WPF.
+
+
+--------------------------------------------------------------
+4.4. AiServices.Persistence
+--------------------------------------------------------------
+
+Vai tro:
+- Chua code lam viec voi PostgreSQL/pgvector.
+- Chua repository implementation cho DB.
+- Chua migration/schema neu dung code-first hoac SQL folder neu dung SQL-first.
+- Ghi chat log, document metadata, chunks, vectors, agent log, audit log.
+
+Duoc phep dat o day:
+- DbContext neu dung EF Core.
+- Npgsql repository neu dung SQL raw/Dapper.
+- VectorStoreRepository.
+- ChatLogRepository.
+- DocumentRepository.
+- AgentRunRepository.
+- AuditLogRepository.
+- SQL scripts tao schema ai.
+
+Nguyen tac:
+- Persistence implement interface cua Application.
+- Khong de Controller goi truc tiep Persistence.
+- Khong query DB nghiep vu ERP tuy tien neu chua co quyen/user context.
+- Moi truy van du lieu phai co companyId/user context khi can phan quyen.
+- Vector/tai lieu phai loc theo status, company, department, role.
+
+Khong duoc dat o day:
+- Controller.
+- HttpClient goi Ollama.
+- UI/WPF.
+- Prompt engineering chinh.
+
+
+--------------------------------------------------------------
+4.5. AiServices.Api
+--------------------------------------------------------------
+
+Vai tro:
+- La cong HTTP chinh.
+- Chua Controller.
+- Chua Authentication/Authorization middleware.
+- Chua Program.cs.
+- Chua request/response DTO cua API.
+- Goi Application service.
+
+Duoc phep dat o day:
+- AiHealthController.
+- AiChatController.
+- AiDocumentController sau nay.
+- AiAgentController sau nay.
+- Auth handler cho ERP token.
+- Middleware bat loi.
+- API Contracts/DTOs.
+- Swagger config.
+- Dependency Injection config.
+
+Nguyen tac:
+- Controller mong, khong nhiet logic.
+- Controller nhan request, validate co ban, goi Application service, tra response.
+- Khong goi truc tiep Ollama tu Controller.
+- Khong query DB truc tiep tu Controller.
+- Khong doc file truc tiep tu Controller.
+- Protected endpoint phai co [Authorize].
+- Khong tin userId/companyId/role tu body request.
+- User context phai lay tu token ERP da validate.
+
+Khong duoc dat o day:
+- Logic RAG phuc tap.
+- Logic Agent phuc tap.
+- SQL raw phuc tap.
+- Code UI.
+
+
+--------------------------------------------------------------
+4.6. AiServices.Worker
+--------------------------------------------------------------
+
+Vai tro:
+- Chay tac vu nen.
+- Sau nay dung cho:
+  + Quet thu muc tai lieu.
+  + Tao embedding.
+  + Cap nhat vector store.
+  + Xu ly agent job dai.
+  + Canh bao phieu tre/ton kho/bat thuong.
+  + Retry job loi.
+
+Nguyen tac:
+- Worker khong thay the API.
+- Worker dung chung Application/Infrastructure/Persistence.
+- Worker phai ghi log/audit/job status.
+- Worker khong tu y thuc hien hanh dong nguy hiem neu chua co approval workflow.
+
+Khong duoc dat o day:
+- Controller.
+- UI/WPF.
+- Dang nhap rieng.
+
+
+==============================================================
+5. QUY TAC AUTH ERP
+==============================================================
+
+AiServices khong xay login rieng.
+
+Nguyen tac:
+1. ERP login truoc.
+2. ERP co access token/session token.
+3. WPF gui token len AiServices.Api bang header:
+
+   Authorization: Bearer <ERP_ACCESS_TOKEN>
+
+4. AiServices.Api validate token bang mot trong cac cach sau:
+   - Goi ERP Auth API.
+   - Decode JWT neu ERP dung JWT.
+   - Kiem tra token/session trong DB neu ERP luu DB.
+5. Sau khi token hop le, AiServices tao ErpUserContext:
+   - CompanyId
+   - EmployeeId
+   - EmployeeName
+   - PartId
+   - PartCode
+   - PartName
+   - Roles
+6. Tat ca logic ve sau chi dung ErpUserContext da xac thuc.
+7. Khong nhan CompanyId/EmployeeId/Role tu body request.
+8. Neu token sai/het han/chua cau hinh auth thi tra 401/403, khong fake user.
+
+Khong duoc lam:
+- Khong hard-code dev token.
+- Khong hard-code admin user.
+- Khong cho request truyen role tu body.
+- Khong bo qua auth cho endpoint chat/agent/document neu co du lieu noi bo.
+
+Endpoint co the public:
+- GET /api/ai/health
+
+Endpoint phai auth:
+- POST /api/ai/chat
+- POST /api/ai/documents/sync
+- GET  /api/ai/documents/search
+- POST /api/ai/agent/run
+- POST /api/ai/agent/approve
+
+
+==============================================================
+6. QUY TAC OLLAMA/MODEL
+==============================================================
+
+Nguyen tac:
+1. ERP/WPF khong goi Ollama truc tiep.
+2. Chi AiServices.Infrastructure/Ollama duoc goi Ollama.
+3. Ollama BaseUrl va model name phai doc tu appsettings.
+4. Khong hard-code model trong service.
+5. Loi Ollama phai duoc bat va tra thong bao ro rang.
+6. Khi model khong tra loi duoc, khong duoc fake cau tra loi.
+7. Timeout phai co cau hinh.
+
+Vi tri dung:
+- Interface: AiServices.Application
+- Implementation: AiServices.Infrastructure/Ollama
+- Config: AiServices.Api/appsettings.json
+
+Vi du config:
+{
+  "Ollama": {
+    "BaseUrl": "http://localhost:11434",
+    "ChatModel": "qwen2.5:3b",
+    "RequestTimeoutSeconds": 120
+  }
+}
+
+
+==============================================================
+7. QUY TAC RAG TAI LIEU
+==============================================================
+
+RAG chua lam o giai doan dau, nhung khi lam phai theo nguyen tac sau:
+
+1. Tai lieu goc co the nam o thu muc M:\ hoac kho noi bo.
+2. Khong tra loi dua tren tai lieu neu user khong co quyen xem.
+3. Moi tai lieu phai co metadata:
+   - CompanyId
+   - FilePath
+   - FileName
+   - Title
+   - DepartmentCode
+   - Version
+   - Status
+   - EffectiveDate
+   - LastModified
+   - FileHash
+4. File bi xoa/sua cu phai mark OBSOLETE/DELETED, khong dung de tra loi moi.
+5. Text phai duoc cat chunk.
+6. Chunk phai co embedding.
+7. Search phai lay top chunk theo vector score.
+8. Ket qua tra loi phai co source/citation.
+9. Neu khong du nguon thi phai noi ro khong du du lieu.
+10. Khong de AI tu che quy trinh noi bo khi khong co tai lieu/source.
+
+Cac service du kien:
+- DocumentScannerService
+- TextExtractorService
+- DocumentChunkService
+- EmbeddingService
+- VectorStoreRepository
+- RetrievalService
+- PromptBuilderService
+
+
+==============================================================
+8. QUY TAC AI AGENT
+==============================================================
+
+Agent chua lam ngay, nhung phai giu kien truc de sau nay mo rong.
+
+Cap hanh dong:
+
+LEVEL 0 - READ ONLY
+- Doc tai lieu.
+- Doc DB theo quyen.
+- Tao bao cao doc.
+- Khong can approval rieng neu user da co quyen xem.
+
+LEVEL 1 - DRAFT
+- Tao mail nhap.
+- Tao bao cao nhap.
+- Tao phieu nhap.
+- Bat buoc hien cho user xem truoc.
+
+LEVEL 2 - WRITE SAFE
+- Luu phieu nhap.
+- Tao task.
+- Cap nhat trang thai nho.
+- Can user xac nhan.
+
+LEVEL 3 - HIGH RISK
+- Gui mail ra ngoai.
+- Duyet/huy phieu.
+- Sua/xoa du lieu DB.
+- Tao but toan.
+- Anh huong kho/ke toan.
+- Bat buoc phe duyet ro rang va log day du.
+
+LEVEL 4 - FORBIDDEN BY DEFAULT
+- Xoa du lieu hang loat.
+- Chay script khong kiem soat.
+- Tu dong gui mail hang loat khong duyet.
+- Tu dong sua phan quyen/user.
+- Mac dinh cam neu chua co quy trinh dac biet.
+
+Nguyen tac:
+1. Agent doc du lieu truoc, hanh dong sau.
+2. Tool nao duoc phep phai dang ky trong ToolRegistry.
+3. Moi tool call phai log input/output/status.
+4. Hanh dong nguy hiem phai co approval.
+5. Agent khong duoc tu bo qua approval.
+6. Agent khong duoc tu sua phan quyen.
+7. Agent khong duoc tu xoa hang loat.
+
+
+==============================================================
+9. QUY TAC DATABASE AI
+==============================================================
+
+Schema du kien: ai
+
+Bang du kien:
+- ai.documents
+- ai.document_chunks
+- ai.chat_sessions
+- ai.chat_messages
+- ai.chat_retrieval_sources
+- ai.agent_runs
+- ai.agent_steps
+- ai.agent_tool_calls
+- ai.agent_approvals
+- ai.audit_logs
+
+Nguyen tac:
+1. Chua tao/sua DB neu chua co yeu cau ro.
+2. Truoc khi tao bang/cot moi phai thong nhat.
+3. Khong sua schema bang ERP nghiep vu neu khong bat buoc.
+4. Neu can lien ket ERP DB, uu tien read-only repository truoc.
+5. Du lieu log AI phai tach schema ai de de quan ly.
+6. Moi log quan trong phai co:
+   - CompanyId
+   - UserId/EmployeeId
+   - Action
+   - TargetType
+   - TargetId
+   - DetailJson
+   - CreatedAt
+7. Thoi gian nen dung server-local time theo quy uoc du an ERP.
+
+
+==============================================================
+10. QUY TAC CONFIG
+==============================================================
+
+appsettings.json chi chua cau hinh chung.
+
+Thong tin nhay cam khong dua len file chung neu copy cho nhieu may:
+- Password DB.
+- API secret.
+- SMTP password.
+- Token.
+- Private key.
+
+Nen dung:
+- appsettings.Development.json cho may dev.
+- Environment variables cho secret.
+- File config rieng tren server neu can.
+
+Khong hard-code:
+- ConnectionString.
+- Ollama BaseUrl.
+- ERP Auth URL.
+- Model name.
+- Duong dan M:\.
+- Email server.
+- CompanyId/UserId/Role.
+
+
+==============================================================
+11. QUY TAC .NET SDK / global.json
+==============================================================
+
+Giai doan hien tai:
+- KHONG dung global.json de khoa SDK cung.
+- Ly do: solution duoc copy qua lai nhieu may, moi may co the co SDK khac nhau.
+- Neu co global.json khoa sai version, Visual Studio se build loi.
+
+Nguyen tac:
+1. Project giu TargetFramework ro rang, vi du:
+   <TargetFramework>net8.0</TargetFramework>
+2. Khong can global.json trong giai doan phat trien chung.
+3. Neu sau nay co server build/CI/CD on dinh moi xem xet khoa SDK.
+4. Neu khoa SDK sau nay, phai thong nhat version tren tat ca may dev/server.
+
+Khong duoc tu y them lai global.json neu chua thong nhat voi nhom.
+
+
+==============================================================
+12. QUY TAC LAM VIEC
+==============================================================
+
+***
+
+==============================================================
+13. QUY TAC DAT TEN
+==============================================================
+
+Project:
+- AiServices.Domain
+- AiServices.Application
+- AiServices.Infrastructure
+- AiServices.Persistence
+- AiServices.Api
+- AiServices.Worker
+
+Namespace phai trung project/folder.
+
+Interface:
+- Bat dau bang I.
+- Vi du:
+  + IChatCompletionClient
+  + IErpTokenValidator
+  + IVectorStoreRepository
+
+Service:
+- Ket thuc bang Service.
+- Vi du:
+  + AiChatService
+  + RetrievalService
+  + PromptBuilderService
+
+Repository:
+- Ket thuc bang Repository.
+- Vi du:
+  + DocumentRepository
+  + ChatLogRepository
+  + VectorStoreRepository
+
+Options:
+- Ket thuc bang Options.
+- Vi du:
+  + OllamaOptions
+  + ErpAuthOptions
+
+Controller:
+- Ket thuc bang Controller.
+- Vi du:
+  + AiChatController
+  + AiHealthController
+
+Request/Response DTO:
+- Ket thuc bang Request/Response.
+- Vi du:
+  + AiChatRequest
+  + AiChatResponse
+
+
+==============================================================
+14. QUY TAC CONTROLLER
+==============================================================
+
+Controller chi lam:
+1. Nhan request.
+2. Validate co ban.
+3. Lay user context neu can.
+4. Goi Application service.
+5. Tra response.
+
+Controller khong duoc:
+- Goi Ollama truc tiep.
+- Query DB truc tiep.
+- Doc file truc tiep.
+- Build prompt phuc tap.
+- Chua business rule dai.
+- Xu ly approval logic dai.
+
+Neu Controller dai qua 100-150 dong, can xem lai co dang nhet logic sai tang khong.
+
+
+==============================================================
+15. QUY TAC APPLICATION SERVICE
+==============================================================
+
+Application Service la noi dieu phoi use case.
+
+Vi du AiChatService:
+- Nhan message.
+- Kiem tra message rong.
+- Lay user context.
+- Goi RetrievalService neu co RAG.
+- Goi PromptBuilderService.
+- Goi IChatCompletionClient.
+- Goi log repository neu can.
+- Tra result.
+
+Application Service khong duoc:
+- Tao HttpClient truc tiep.
+- Doc appsettings truc tiep.
+- Truy cap UI.
+- Biet chi tiet Ollama endpoint.
+- Biet chi tiet connection string.
+
+
+==============================================================
+16. QUY TAC INFRASTRUCTURE ADAPTER
+==============================================================
+
+Adapter chi lam cau noi voi ben ngoai.
+
+Vi du OllamaChatCompletionClient:
+- Nhan prompt/messages.
+- Tao HTTP request dung format Ollama.
+- Goi Ollama.
+- Parse response.
+- Throw exception ro rang neu loi.
+
+Adapter khong duoc:
+- Quyet dinh quyen user.
+- Tu build business prompt.
+- Tu query DB khac neu khong phai nhiem vu cua no.
+- Tu log audit neu Application/UseCase chua yeu cau.
+
+
+==============================================================
+17. QUY TAC PERSISTENCE
+==============================================================
+
+Persistence chi lam DB.
+
+Repository:
+- Nhan parameter ro rang.
+- Query/insert/update DB.
+- Tra model ve Application.
+- co the thong qua API ERP
+
+Repository khong duoc:
+- Nhan HttpContext.
+- Tu doc token.
+- Tu quyet dinh flow nghiep vu lon.
+- Tra raw exception kho hieu neu co the wrap thanh loi ro rang.
+
+Bat buoc:
+- Query co companyId/user context khi can. 
+- Khong bo qua status/isActive neu bang co cot nay.
+- Khong lay du lieu vuot quyen.
+
+
+==============================================================
+18. QUY TAC ERROR HANDLING
+==============================================================
+
+1. Loi thieu token/sai token: 401.
+2. Co token nhung khong co quyen: 403.
+3. Request sai format: 400.
+4. Khong tim thay tai nguyen: 404.
+5. Loi business co the du doan: 409 hoac 422.
+6. Loi he thong: 500.
+
+Khong tra stack trace cho client production.
+
+Nen co middleware:
+- ExceptionHandlingMiddleware
+
+Response loi nen ro rang:
+{
+  "message": "Noi dung loi de nguoi dung hieu",
+  "traceId": "..."
+}
+
+
+==============================================================
+19. QUY TAC LOG/AUDIT
+==============================================================
+
+Can log:
+- Ai chat request/response quan trong.
+- Source chunk duoc dung de tra loi.
+- Agent run.
+- Agent tool call.
+- Approval request.
+- Approval decision.
+- Loi he thong quan trong.
+- Hanh dong co anh huong du lieu.
+
+Khong log tran lan:
+- Khong log password/token.
+- Khong log secret.
+- Khong log noi dung qua nhay cam neu khong can.
+
+Audit can co:
+- CompanyId
+- EmployeeId
+- EmployeeName neu can
+- Action
+- TargetType
+- TargetId
+- DetailJson
+- CreatedAt
+
+
+==============================================================
+20. QUY TAC THEM CHUC NANG MOI
+==============================================================
+
+Khi them chuc nang moi, di theo thu tu:
+
+1. Xac dinh chuc nang thuoc Chat, RAG, Agent, Document hay Admin.
+2. Tao/kiem tra Contract request/response trong Api neu can.
+3. Tao interface trong Application neu can goi he thong ngoai/DB.
+4. Tao service/use case trong Application.
+5. Implement adapter trong Infrastructure/Persistence.
+6. Dang ky DI trong Program.cs hoac extension method.
+7. Tao Controller endpoint mong.
+8. Build solution.
+9. Test endpoint.
+10. Ghi lai thay doi vao docs/CHANGELOG_THU_CONG.md.
+
+Khong duoc:
+- Them thang Controller -> DB/Ollama truc tiep.
+- Copy paste logic lung tung.
+- Sua schema DB khi chua thong nhat.
+- Them demo/hard-code vao production flow.
+
+
+==============================================================
+21. THU TU PHAT TRIEN THEO GIAI DOAN
+==============================================================
+
+GIAI DOAN 1 - NEN MONG API
+- Chot solution structure.
+- Chay duoc AiServices.Api.
+- Co /api/ai/health.
+- Co /api/ai/chat thong qua Application service.
+- Noi Ollama qua Infrastructure.
+- Noi token ERP that.
+- Khong dung token demo.
+
+GIAI DOAN 2 - RAG TAI LIEU
+- Quet tai lieu.
+- Doc txt/md/docx/pdf.
+- Cat chunk.
+- Tao embedding.
+- Luu PostgreSQL/pgvector.
+- Search top chunk.
+- PromptBuilder tra loi co nguon.
+- Log chat/source.
+
+GIAI DOAN 3 - AGENT READ ONLY
+- Tao AgentOrchestrator.
+- Tao ToolRegistry.
+- Tao tool doc DB/tai lieu read-only.
+- Agent tra loi bang ket qua tool.
+- Log tool call.
+
+GIAI DOAN 4 - AGENT CO PHE DUYET
+- Approval workflow.
+- Tao mail nhap/bao cao nhap.
+- User duyet moi gui/luu.
+- Log nguoi duyet va noi dung.
+
+GIAI DOAN 5 - AGENT CHAY NEN
+- Job queue.
+- Worker nen.
+- Canh bao ton kho/phieu tre/bat thuong.
+- Dashboard lich su agent.
+
+
+==============================================================
+22. NHUNG DIEU CAM KY
+==============================================================
+
+1. Cam de WPF goi truc tiep Ollama.
+2. Cam hard-code token/user/admin.
+3. Cam bo qua auth cho endpoint noi bo quan trong.
+4. Cam Controller goi DB/Ollama truc tiep.
+5. Cam Agent tu gui mail/sua DB/duyet phieu khi chua co approval.
+6. Cam Agent tu sua phan quyen/user.
+7. Cam xoa du lieu hang loat bang Agent neu chua co quy trinh dac biet.
+8. Cam them global.json khoa SDK khi chua thong nhat.
+9. Cam de solution build loi roi thoat may.
+10. Cam sua folder/namespace lon khi chua thong nhat.
+
+
+==============================================================
+23. CHECKLIST TRUOC KHI KET THUC PHIEN LAM VIEC
+==============================================================
+
+Moi dev truoc khi thoat phai kiem tra:
+
+[ ] Build solution thanh cong.
+[ ] Khong con file dang sua dang do.
+[ ] Khong co hard-code token/secret.
+[ ] Khong co code demo trong production flow.
+[ ] Neu sua Program.cs/DI thi da build lai.
+[ ] Neu them config thi da ghi chu.
+[ ] Neu them package NuGet thi da ghi chu.
+[ ] Neu sua API contract thi da bao nhom.
+[ ] Da ghi docs/CHANGELOG_THU_CONG.md neu co thay doi dang ke.
+[ ] Da backup neu thay doi lon.
+
+
+==============================================================
+24. GHI NHO CUOI CUNG
+==============================================================
+
+AiServices la nen tang AI noi bo dai han.
+
+Muc tieu khong phai chi chat voi model.
+Muc tieu la xay mot AI API co the phat trien thanh:
+- Chat noi bo.
+- RAG theo tai lieu cong ty.
+- Tro ly ERP.
+- AI Agent doc du lieu.
+- AI Agent tao de xuat.
+- AI Agent thuc hien hanh dong co phe duyet.
+- He thong log/audit day du.
+
+Viec gi chua ro thi khong hard-code tam.
+Hay tao interface/placeholder sach, cho den khi co thong tin that tu ERP/DB/quy trinh.
+
+Ket thuc tai lieu.
